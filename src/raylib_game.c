@@ -1,23 +1,12 @@
-/*******************************************************************************************
-*
-*   raylib gamejam template
-*
-*   Code licensed under an unmodified zlib/libpng license, which is an OSI-certified,
-*   BSD-like license that allows static linking with closed source software
-*
-*   Copyright (c) 2022-2026 Ramon Santamaria (@raysan5)
-*
-********************************************************************************************/
-
 #include "raylib.h"
 
 #if defined(PLATFORM_WEB)
-    #include <emscripten/emscripten.h>      // Emscripten library
+    #include <emscripten/emscripten.h>
 #endif
 
-#include <stdio.h>                          // Required for: printf()
-#include <stdlib.h>                         // Required for: 
-#include <string.h>                         // Required for:
+#include <stdio.h>
+#include <stdlib.h> 
+#include <string.h>
 
 //----------------------------------------------------------------------------------
 // Defines and Macros
@@ -49,7 +38,7 @@ typedef enum {
 static const int screenWidth = 720;
 static const int screenHeight = 720;
 
-static RenderTexture2D target = { 0 };  // Render texture to render our game
+static RenderTexture2D target = {0};  // Render texture to render our game
 static int frameCounter = 0;
 
 // TODO: Define global variables here, recommended to make them static
@@ -59,11 +48,7 @@ static int frameCounter = 0;
 //----------------------------------------------------------------------------------
 static void UpdateDrawFrame(void);      // Update and Draw one frame
 
-//------------------------------------------------------------------------------------
-// Program main entry point
-//------------------------------------------------------------------------------------
-int main(void)
-{
+int main(void) {
 #if !defined(_DEBUG)
     SetTraceLogLevel(LOG_NONE);         // Disable raylib trace log messages
 #endif
@@ -82,12 +67,10 @@ int main(void)
 #if defined(PLATFORM_WEB)
     emscripten_set_main_loop(UpdateDrawFrame, 60, 1);
 #else
-    SetTargetFPS(60);     // Set our game frames-per-second
-    //--------------------------------------------------------------------------------------
+    SetTargetFPS(60);
 
     // Main game loop
-    while (!WindowShouldClose())    // Detect window close button
-    {
+    while (!WindowShouldClose()) {
         UpdateDrawFrame();
     }
 #endif
@@ -98,8 +81,7 @@ int main(void)
     
     // TODO: Unload all loaded resources at this point
 
-    CloseWindow();        // Close window and OpenGL context
-    //--------------------------------------------------------------------------------------
+    CloseWindow();
 
     return 0;
 }
@@ -107,15 +89,9 @@ int main(void)
 //--------------------------------------------------------------------------------------------
 // Module Functions Definition
 //--------------------------------------------------------------------------------------------
-// Update and draw frame
-void UpdateDrawFrame(void)
-{
-    // Update
-    //----------------------------------------------------------------------------------
-    // TODO: Update variables / Implement example logic at this point
-   
+void UpdateDrawFrame(void) {
+
     frameCounter++;
-    //----------------------------------------------------------------------------------
 
     // Draw
     //----------------------------------------------------------------------------------
@@ -144,11 +120,10 @@ void UpdateDrawFrame(void)
         ClearBackground(RAYWHITE);
         
         // Draw render texture to screen, scaled if required
-        DrawTexturePro(target.texture, (Rectangle){ 0, 0, (float)target.texture.width, -(float)target.texture.height }, 
-            (Rectangle){ 0, 0, (float)target.texture.width, (float)target.texture.height }, (Vector2){ 0, 0 }, 0.0f, WHITE);
+        DrawTexturePro(target.texture, (Rectangle) {0, 0, (float) target.texture.width, -(float) target.texture.height}, 
+            (Rectangle) {0, 0, (float) target.texture.width, (float) target.texture.height}, (Vector2) {0, 0}, 0.0f, WHITE);
 
         // TODO: Draw everything that requires to be drawn at this point, maybe UI?
 
     EndDrawing();
-    //----------------------------------------------------------------------------------  
 }
