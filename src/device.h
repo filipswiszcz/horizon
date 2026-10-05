@@ -1,7 +1,8 @@
 #ifndef HOR_DEVICE_H
 #define HOR_DEVICE_H
 
-#include "common.h"
+#include "dispatcher.h"
+#include "messenger.h"
 
 enum class device_status : u8 {
     SUCCESS = 0,
@@ -15,6 +16,10 @@ public:
     void update(void);
     void terminate(void);
 private:
+    dispatcher task_dispatcher;
+    messenger messenger;
+
+    u8 running;
 };
 
 #endif // !HOR_DEVICE_H
