@@ -11,34 +11,27 @@ MODE=$1
 
 case "$MODE" in
     dev)
+        FLAGS=(-g -O0 -Wall -Wextra -std=c++17 -pthread)
         ;;
     release)
+        FLAGS=(-O3 -Wall -Wextra -std=c++17 -pthread)
         ;;
     *)
-        echo "Available build options: dev, release"
+        echo "BUILD OPTIONS: dev, release"
         exit 1
         ;;
 esac
 
 CXX="g++"
-LIBS=(-lpthread)
-FLAGS=(-g -O3 -Wall -Wextra -std=c++17)
 
 rm -rf build
 mkdir -p bin build
 
-$CXX "${FLAGS[@]}" \
+"$CXX" "${FLAGS[@]}" \
     -I./lib \
     src/*.cpp \
-    "${LIBS[@]}" \
     -o build/device
 
-rm -rf bin/device
-
-if [ "$MODE" == "dev" ]; then
-    ln -sf ../build/device bin/device
-else
-    cp -f build/device bin/
-fi
+cp -f build/device bin/
 
 echo "BUILD COMPLETE"
