@@ -1,16 +1,23 @@
 #ifndef HOR_DISPATCHER_H
 #define HOR_DISPATCHER_H
 
-#include <atomic>
 #include <mutex>
 #include <condition_variable>
 #include <thread>
 
 #include "common.h"
 
+constexpr u32 TASK_CONTEXT_SIZE = 32;
+
 struct task {
     void (*execute) (void *context);
-    void *context;
+    alignas(8) u8 context[TASK_CONTEXT_SIZE];
+
+    template<typename T>
+    void bind(void (*func) (void*), const T &data) noexcept {
+        this->execute = func;
+        std::memcpy(this->context, &data, sizeof(T));
+    }
 };
 
 enum class dispatcher_status : u8 {
@@ -22,7 +29,7 @@ enum class dispatcher_status : u8 {
 class dispatcher {
 public:
     [[nodiscard]] dispatcher_status initialize(void);
-    [[nodiscard]] dispatcher_status enqueue(task &task);
+    [[nodiscard]] dispatcher_status enqueue(const task &task);
     void terminate(void);
 private:
     static constexpr u32 MAX_THREAD_WORKERS = 2;

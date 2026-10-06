@@ -15,7 +15,7 @@ dispatcher_status dispatcher::initialize(void) {
     return dispatcher_status::SUCCESS;
 }
 
-dispatcher_status dispatcher::enqueue(task &task) {
+dispatcher_status dispatcher::enqueue(const task &task) {
     std::unique_lock<std::mutex> lock(this->lock);
 
     if (this->task_counter >= MAX_QUEUE_TASKS) {
@@ -47,7 +47,7 @@ void dispatcher::terminate(void) {
 
 void dispatcher::_worker_update(void) {
     while (true) {
-        task task = {nullptr, nullptr};
+        task task = {nullptr};
 
         {
             std::unique_lock<std::mutex> lock(this->lock);
