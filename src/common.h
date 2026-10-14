@@ -2,6 +2,7 @@
 #define HOR_COMMON_H
 
 #include <atomic>
+#include <cstdio>
 #include <cstdint>
 #include <cstring>
 #include <iostream>

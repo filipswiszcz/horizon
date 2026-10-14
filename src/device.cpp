@@ -1,15 +1,15 @@
 #include "device.h"
 
 device_status device::initialize(void) {
-    dispatcher_status disp_init_status = this->task_dispatcher.initialize();
+    dispatcher_status disp_init_status = this->dispatcher.initialize();
     if (disp_init_status != dispatcher_status::SUCCESS) {
         return device_status::INIT_ERROR;
     }
 
-    messenger_status mess_init_status = this->messenger.initialize(&this->task_dispatcher);
+    messenger_status mess_init_status = this->messenger.initialize(&this->dispatcher, &this->requester);
     if (mess_init_status != messenger_status::SUCCESS) {
         // std::cout << mess_init_status << std::endl;
-        this->task_dispatcher.terminate();
+        this->dispatcher.terminate();
         return device_status::INIT_ERROR;
     }
 
@@ -23,13 +23,16 @@ void device::update(void) {
         
         std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
+        // const requester_status req_send_status = requester.send(this->url, this->msg, std::strlen(this->msg));
+        // std::cout << static_cast<u32>(req_send_status) << std::endl;
+
         // handle responses from the server (eg /status)
     }
 }
 
 void device::terminate(void) {
     this->running = 0;
-    this->task_dispatcher.terminate();
+    this->dispatcher.terminate();
 }
 
 i32 main(void) {
