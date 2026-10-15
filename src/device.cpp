@@ -76,33 +76,59 @@ device_status device::_save_state(void) noexcept {
 }
 
 device_status device::_check_commits(void) noexcept {
-    FILE *file = popen("p4 changes -m 1 -s submitted", "r");
+    FILE *file;
+#ifdef _WIN32
+    file = _popen("p4 changes -m 1 -s submitted", "r");
+#else
+    file = popen("p4 changes -m 1 -s submitted", "r");
+#endif    
     if (file == nullptr) {
         return device_status::READ_ERROR;
     }
 
     char cmd_output[128] = {0};
     if (std::fgets(cmd_output, sizeof(cmd_output), file) == nullptr) {
+#ifdef _WIN32
+        _pclose(file);
+#else
         pclose(file);
+#endif
         return device_status::READ_ERROR;
     }
 
     i32 curr_commit_id = 0;
     if (std::sscanf(cmd_output, "Change %d on", &curr_commit_id) != 1) {
+#ifdef _WIN32
+        _pclose(file);
+#else
         pclose(file);
+#endif
         return device_status::READ_ERROR;
     }
     if (curr_commit_id <= this->last_commit_id) {
+#ifdef _WIN32
+        _pclose(file);
+#else
         pclose(file);
+#endif
         return device_status::READ_ERROR;
     }
-    
-    pclose(file);
+
+#ifdef _WIN32
+        _pclose(file);
+#else
+        pclose(file);
+#endif
 
     char cmd_desc_output[128];
     std::snprintf(cmd_desc_output, sizeof(cmd_desc_output), "p4 -Ztag -F \"%%desc%%\" describe -s %d", curr_commit_id);
     
-    FILE *process = popen(cmd_desc_output, "r");
+    FILE *process;
+#ifdef _WIN32
+        process = _popen(cmd_desc_output, "r");
+#else
+        process = popen(cmd_desc_output, "r");
+#endif
     if (process == nullptr) {
         return device_status::READ_ERROR;
     }
@@ -132,7 +158,11 @@ device_status device::_check_commits(void) noexcept {
         }
     }
 
-    pclose(process);
+#ifdef _WIN32
+        _pclose(process);
+#else
+        pclose(process);
+#endif
 
     char message[1536];
     std::snprintf(message, sizeof(message), "CHANGELOG #%d\\n%s", curr_commit_id, raw_message);
