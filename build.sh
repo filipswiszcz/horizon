@@ -30,6 +30,7 @@ mkdir -p bin build
 "$CXX" "${FLAGS[@]}" \
     -I./lib \
     src/*.cpp \
+    -lcurl \
     -o build/device
 
 cp -f build/device bin/
