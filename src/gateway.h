@@ -1,6 +1,8 @@
 #ifndef HOR_GATEWAY_H
 #define HOR_GATEWAY_H
 
+#include <chrono>
+
 #include "common.h"
 
 enum class gateway_status : u8 {
@@ -19,7 +21,7 @@ private:
     char token[128];
 
     u32 heartbeat;
-    std::chrono::steady_clock::time_point last_heartbeat_time;
+    std::chrono::steady_clock::time_point last_heartbeat;
 
     char rec_buff[4096];
 

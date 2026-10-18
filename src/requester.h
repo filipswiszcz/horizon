@@ -14,8 +14,11 @@ class requester {
 public:
     [[nodiscard]] requester_status send(const char *url, const char *headers, const char *data, const u32 data_size) noexcept;
 private:
+#ifdef _WIN32
     [[nodiscard]] requester_status _send_win32(const char *url, const char *headers, const char *data, const u32 data_size) noexcept;
+#else
     [[nodiscard]] requester_status _send_linux(const char *url, const char *headers, const char *data, const u32 data_size) noexcept;
+#endif
 };
 
 #endif // !HOR_REQUESTER_H

@@ -1,14 +1,10 @@
 #ifndef HOR_COMMON_H
 #define HOR_COMMON_H
 
-#include <atomic>
-#include <cstdio>
 #include <cstdint>
-#include <cstring>
-#include <iostream>
 
 #define DISCORD_API_URL "https://discord.com/api/v10/"
-#define DISCORD_TOKEN ""
+#define DISCORD_MAX_CHANNELS 64
 
 typedef float f32;
 typedef double f64;
@@ -23,9 +19,5 @@ typedef uint64_t u64;
 
 static_assert(sizeof(f32) == 4, "Float must be exactly 4 bytes");
 static_assert(sizeof(f64) == 8, "Double must be exactly 8 bytes");
-
-typedef u64 dcID;
-
-// dictionary with channel_name -> channel_id relations?
 
 #endif //!HOR_COMMON_H

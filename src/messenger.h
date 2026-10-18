@@ -2,9 +2,9 @@
 #define HOR_MESSENGER_H
 
 #include "common.h"
-#include "dispatcher.h"
-#include "memory.h"
-#include "requester.h"
+
+class dispatcher;
+class requester;
 
 struct message {
     char url[128];

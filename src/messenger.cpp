@@ -1,4 +1,9 @@
+#include <cstdio>
+#include <cstring>
+
+#include "dispatcher.h"
 #include "messenger.h"
+#include "requester.h"
 
 messenger_status messenger::initialize(class dispatcher *dispatcher, class requester *requester, const char *token) noexcept {
     if (dispatcher == nullptr || requester == nullptr) {

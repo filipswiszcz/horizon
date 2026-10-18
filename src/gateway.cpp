@@ -1,12 +1,14 @@
-#include "gateway.h"
+#include <cstdio>
+#include <cstring>
+#include <iostream>
 
 #ifdef _WIN32
-
 #include <windows.h>
 #include <winhttp.h>
-
 #pragma comment(lib, "winhttp.lib")
 #endif
+
+#include "gateway.h"
 
 gateway_status gateway::initialize(const char *token) noexcept {
     if (token == nullptr) {
@@ -36,10 +38,10 @@ void gateway::update(void) noexcept {
 
     if (this->heartbeat > 0) {
         auto clock_now = std::chrono::steady_clock::now();
-        auto clock_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(clock_now - this->last_heartbeat_time).count();
+        auto clock_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(clock_now - this->last_heartbeat).count();
         if (clock_elapsed >= this->heartbeat) {
             this->send_heartbeat();
-            this->last_heartbeat_time = clock_now;
+            this->last_heartbeat = clock_now;
         }
     }
 
