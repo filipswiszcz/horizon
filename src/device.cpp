@@ -15,6 +15,14 @@ device_status device::initialize(void) noexcept {
         return device_status::INIT_ERROR;
     }
 
+    std::strncpy(this->token, token, sizeof(this->token) - 1);
+    this->token[sizeof(this->token) - 1] = '\0';
+
+    this->is_running = 1;
+    this->is_gw_online = 0;
+    this->is_mess_online = 0;
+    this->channels.counter = 0;
+
     dispatcher_status disp_init_status = this->dispatcher.initialize();
     if (disp_init_status != dispatcher_status::SUCCESS) {
         std::cout << "HOR_ERR: Dispatcher not initialized." << std::endl;
@@ -22,49 +30,55 @@ device_status device::initialize(void) noexcept {
     }
 
     gateway_status gate_init_status = this->gateway.initialize(token);
-    if (gate_init_status != gateway_status::SUCCESS) {
-        std::cout << "HOR_ERR: Gateway not initialized." << std::endl;
-        return device_status::INIT_ERROR;
+    if (gate_init_status == gateway_status::SUCCESS) {
+        this->is_gw_online = 1;
+    } else {
+        std::cout << "HOR_WARN: Gateway offline." << std::endl;
     }
 
     messenger_status mess_init_status = this->messenger.initialize(&this->dispatcher, &this->requester, token);
-    if (mess_init_status != messenger_status::SUCCESS) {
-        this->dispatcher.terminate();
-        std::cout << "HOR_ERR: Messenger not initialized." << std::endl;
-        return device_status::INIT_ERROR;
+    if (mess_init_status == messenger_status::SUCCESS) {
+        this->is_mess_online = 1;
+    } else {
+        std::cout << "HOR_WARN: Messenger offline." << std::endl;
     }
 
-    // get channels
-
-    this->running = 1;
-    this->last_commit_id = 0;
-
-    device_status dev_load_status = this->_load_state(); // write it on the first launch
+    device_status dev_load_status = this->_load_state();
     if (dev_load_status != device_status::SUCCESS) {
-        this->dispatcher.terminate();
-        std::cout << "HOR_ERR: Device state not loaded." << std::endl;
-        return device_status::INIT_ERROR;
+        this->last_commit_id = 0;
+        std::cout << "HOR_WARN: Could not access or create state file. Defaulting commit ID to 0." << std::endl;
     }
 
     this->last_commits_check = std::chrono::steady_clock::now();
+    this->last_gateway_check = std::chrono::steady_clock::now();
 
     return device_status::SUCCESS;
 }
 
 void device::update(void) noexcept {
-    while (this->running) {
-        this->gateway.update(); // i need to think it through
+    while (this->is_running) {
+        // this->gateway.update(); // i need to think it through
 
         auto clock_now = std::chrono::steady_clock::now();
-        auto clock_elapsed = std::chrono::duration_cast<std::chrono::seconds>(clock_now - this->last_commits_check).count();
 
-        if (clock_elapsed >= 8) {
-            // this->_check_commits("//depot/...", "changelog");
-            // messenger_status mess_send_status = messenger.send(1556246990831095870, "wake the fuck up samurai");
-            this->last_commits_check = std::chrono::steady_clock::now();
+        auto gw_clock_elapsed = std::chrono::duration_cast<std::chrono::seconds>(clock_now - this->last_gateway_check).count();
+        if (this->is_gw_online && gw_clock_elapsed >= 1) {
+            gateway_status gw_update_status = this->gateway.update();
+            if (this->gw_update_status != gateway_status::SUCCESS) {
+                std::cout << "HOR_WARN: Gateway connection dropped." << std::endl;
+                this->is_gw_online = 0;
+            }
+            this->last_gateway_check = clock_now;
         }
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        auto p4_clock_elapsed = std::chrono::duration_cast<std::chrono::seconds>(clock_now - this->last_commits_check).count();
+        if (p4_clock_elapsed >= 120) {
+            // this->_check_commits("//depot/...", "changelog");
+            // messenger_status mess_send_status = messenger.send(1556246990831095870, "wake the fuck up samurai");
+            this->last_commits_check = clock_now;
+        }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
 
         // const requester_status req_send_status = requester.send(this->url, this->msg, std::strlen(this->msg));
         // std::cout << static_cast<u32>(req_send_status) << std::endl;
@@ -74,9 +88,9 @@ void device::update(void) noexcept {
 }
 
 void device::terminate(void) noexcept {
-    this->running = 0;
-    this->dispatcher.terminate();
+    this->is_running = 0;
     this->gateway.terminate();
+    this->dispatcher.terminate();
 }
 
 u64 device::_get_channel_id(const char *name) noexcept {
@@ -111,7 +125,7 @@ device_status device::_save_state(void) noexcept {
     return device_status::SUCCESS;
 }
 
-device_status device::_check_commits(const char *depot, const char *channel_name) noexcept {
+device_status device::_check_commits(const char *depot_name, const char *channel_name) noexcept {
     if (depot == nullptr || channel_name == nullptr) {
         return device_status::READ_ERROR;
     }

@@ -16,6 +16,13 @@ enum class device_status : u8 {
     NETWORK_ERROR
 };
 
+// get map of channels
+// don't terminate the program, when messenger doesn't send msgs
+// keep the bot heartbeat alive
+// make device/messenger configurable
+// add linux send
+// swap includes with class forward declarations
+
 class device {
 public:
     [[nodiscard]] device_status initialize(void) noexcept;
@@ -33,19 +40,26 @@ private:
         u32 counter;
     } channels;
 
-    u8 running;
+    char token[128];
+
+    u8 is_running;
+
+    u8 is_gw_online;
+    u8 is_mess_online;
 
     i32 last_commit_id;
     std::chrono::steady_clock::time_point last_commits_check;
+    std::chrono::steady_clock::time_point last_gateway_check;
 
     [[nodiscard]] u64 _get_channel_id(const char *name) noexcept;
 
     [[nodiscard]] device_status _load_state(void) noexcept;
     [[nodiscard]] device_status _save_state(void) noexcept;
 
-    [[nodiscard]] device_status _keep_alive(void) noexcept;
+    [[nodiscard]] device_status _restore_gateway_conn(void) noexcept;
+    [[nodiscard]] device_status _restart_messenger(void) noexcept;
 
-    [[nodiscard]] device_status _check_commits(const char *depot, const char *channel_name) noexcept;
+    [[nodiscard]] device_status _check_commits(const char *depot_name, const char *channel_name) noexcept;
 };
 
 #endif // !HOR_DEVICE_H
