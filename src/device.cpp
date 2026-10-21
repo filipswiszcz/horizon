@@ -106,12 +106,25 @@ u64 device::_get_channel_id(const char *name) noexcept {
 }
 
 device_status device::_load_state(void) noexcept {
+    errno = 0;
     FILE *file = std::fopen(DEVICE_STATE_FILE, "r");
+
     if (file == nullptr) {
-        return device_status::READ_ERROR;
+        if (errno != ENOENT) {
+            return device_status::READ_ERROR;
+        }
+
+        // File doesn't exist: initialize state and create it.
+        this->last_commit_id = 0;
+        return this->_save_state();
     }
-    std::fscanf(file, "last_commit_id=%d", &this->last_commit_id);
-    std::fclose(file);
+
+    if (std::fscanf(file, "last_commit_id=%d",
+                    &this->last_commit_id) != 1) {
+        this->last_commit_id = 0;
+    }
+
+    (void) std::fclose(file);
     return device_status::SUCCESS;
 }
 
@@ -121,7 +134,7 @@ device_status device::_save_state(void) noexcept {
         return device_status::WRITE_ERROR;
     }
     std::fprintf(file, "last_commit_id=%d", this->last_commit_id);
-    std::fclose(file);
+    (void) std::fclose(file);
     return device_status::SUCCESS;
 }
 
