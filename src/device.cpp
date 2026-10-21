@@ -1,3 +1,4 @@
+#include <cerrno>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -64,7 +65,7 @@ void device::update(void) noexcept {
         auto gw_clock_elapsed = std::chrono::duration_cast<std::chrono::seconds>(clock_now - this->last_gateway_check).count();
         if (this->is_gw_online && gw_clock_elapsed >= 1) {
             gateway_status gw_update_status = this->gateway.update();
-            if (this->gw_update_status != gateway_status::SUCCESS) {
+            if (gw_update_status != gateway_status::SUCCESS) {
                 std::cout << "HOR_WARN: Gateway connection dropped." << std::endl;
                 this->is_gw_online = 0;
             }
@@ -106,24 +107,17 @@ u64 device::_get_channel_id(const char *name) noexcept {
 }
 
 device_status device::_load_state(void) noexcept {
-    errno = 0;
     FILE *file = std::fopen(DEVICE_STATE_FILE, "r");
-
     if (file == nullptr) {
         if (errno != ENOENT) {
             return device_status::READ_ERROR;
         }
-
-        // File doesn't exist: initialize state and create it.
         this->last_commit_id = 0;
         return this->_save_state();
     }
-
-    if (std::fscanf(file, "last_commit_id=%d",
-                    &this->last_commit_id) != 1) {
+    if (std::fscanf(file, "last_commit_id=%d", &this->last_commit_id) != 1) {
         this->last_commit_id = 0;
     }
-
     (void) std::fclose(file);
     return device_status::SUCCESS;
 }
@@ -133,18 +127,20 @@ device_status device::_save_state(void) noexcept {
     if (file == nullptr) {
         return device_status::WRITE_ERROR;
     }
-    std::fprintf(file, "last_commit_id=%d", this->last_commit_id);
+    if (std::fprintf(file, "last_commit_id=%d", this->last_commit_id) == 0) {
+        return device_status::WRITE_ERROR;
+    }
     (void) std::fclose(file);
     return device_status::SUCCESS;
 }
 
 device_status device::_check_commits(const char *depot_name, const char *channel_name) noexcept {
-    if (depot == nullptr || channel_name == nullptr) {
+    if (depot_name == nullptr || channel_name == nullptr) {
         return device_status::READ_ERROR;
     }
 
     char cmd_p4_changes[256]; // find the best size
-    std::snprintf(cmd_p4_changes, sizeof(cmd_p4_changes), "p4 changes -m 1 -s submitted %s", depot);
+    std::snprintf(cmd_p4_changes, sizeof(cmd_p4_changes), "p4 changes -m 1 -s submitted %s", depot_name);
 
     FILE *cmd_p4_changes_pipe;
 #ifdef _WIN32
