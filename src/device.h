@@ -26,7 +26,7 @@ enum class device_status : u8 {
 class device {
 public:
     [[nodiscard]] device_status initialize(void) noexcept;
-    void update(void) noexcept;
+    void tick(void) noexcept;
     void terminate(void) noexcept;
 private:
     dispatcher dispatcher;

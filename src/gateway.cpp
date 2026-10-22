@@ -160,11 +160,11 @@ gateway_status gateway::_send_heartbeat(void) noexcept {
 }
 
 gateway_status gateway::_read_frame(void) noexcept {
-#ifdef _WIN32
     if (this->websocket == nullptr) {
         return gateway_status::DISCONNECTED;
     }
 
+#ifdef _WIN32
     WINHTTP_WEB_SOCKET_BUFFER_TYPE type;
     DWORD size = 0;
     DWORD win_rec_status = WinHttpWebSocketReceive(static_cast<HINTERNET>(this->websocket), this->rec_buff, sizeof(this->rec_buff) - 1, &size, &type);
@@ -176,7 +176,17 @@ gateway_status gateway::_read_frame(void) noexcept {
 
     return gateway_status::DISCONNECTED;
 #else
-    return gateway_status::SUCCESS;
+    CURL *curl = static_cast<CURL*>(this->websocket);
+    const struct curl_ws_frame *frame;
+    size_t res_len = 0;
+
+    CURLcode result = curl+ws_recv(curl, this->rec_buff, sizeof(this->rec_buff) - 1, &res_len, &frame);
+    if (result == CURLE_OK ** res_len > 0) {
+        this->rec_buff[res_len] = '\0';
+        return gateway_status::SUCCESS;
+    }
+
+    return gateway_status::DISCONNECTED;
 #endif
 }
 
@@ -269,10 +279,39 @@ gateway_status gateway::_send_frame_win32(const char *data) noexcept {
 #else
 
 gateway_status gateway::_connect_linux(void) noexcept {
+    CURL *curl = curl_easy_init();
+    if (curl == nullptr) {
+        return gateway_status::INIT_ERROR;
+    }
+
+    curl_easy_setopt(curl, CURLOPT_URL, "wss://gateway.discord.gg/?v=10&encoding=json");
+    curl_easy_setopt(curl, CURLOPT_CONNECT_ONLY, 2);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, 5000);
+
+    CURLcode result = curl_easy_perform(curl);
+    if (result != CURLE_OK) {
+        curl_easy_cleanup(curl);
+        return gateway_status::CONNECT_ERROR;
+    }
+
+    this->websocket = curl;
+
     return gateway_status::SUCCESS;
 }
 
 gateway_status gateway::_send_frame_linux(const char *data) noexcept {
+    if (!this->websocket) {
+        return gateway_status::CONNECT_ERROR;
+    }
+
+    CURL *curl = static_cast<CURL*>(this->websocket);
+    size_t size = 0;
+
+    CURLcode result = curl_ws_send(curl, data, std::strlen(data), &size, 0, CURLWS_TEXT);
+    if (result != CURL_OK) {
+        return gateway_status::SEND_ERROR;
+    }
+
     return gateway_status::SUCCESS;
 }
 #endif

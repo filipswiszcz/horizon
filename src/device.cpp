@@ -56,7 +56,7 @@ device_status device::initialize(void) noexcept {
     return device_status::SUCCESS;
 }
 
-void device::update(void) noexcept {
+void device::tick(void) noexcept {
     while (this->is_running) {
         // this->gateway.update(); // i need to think it through
 
@@ -253,7 +253,7 @@ i32 main(void) {
     if (dev_init_status != device_status::SUCCESS) {
         return 1;
     }
-    device.update();
+    device.tick();
     device.terminate();
     return 0;
 }
