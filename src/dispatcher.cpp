@@ -1,3 +1,5 @@
+#include <cstring>
+
 #include "dispatcher.h"
 
 // public
@@ -6,7 +8,7 @@ dispatcher_status dispatcher::initialize(void) noexcept {
     this->task_counter = 0;
     this->tasks_head = 0;
     this->tasks_tail = 0;
-    this->running.store(1);
+    this->is_running.store(1);
 
     for (u8 i = 0; i < static_cast<u8>(task_type::VOID); i++) {
         this->handlers[i] = {nullptr, nullptr};
@@ -58,7 +60,7 @@ dispatcher_status dispatcher::enqueue(const task_type type, const void *data, u3
 }
 
 void dispatcher::terminate(void) noexcept {
-    this->running.store(0);
+    this->is_running.store(0);
     this->cv.notify_all();
 
     for (u32 i = 0; i < MAX_THREAD_WORKERS; i++) {
@@ -77,10 +79,10 @@ void dispatcher::_worker_update(void) noexcept {
         {
             std::unique_lock<std::mutex> lock(this->lock);
             this->cv.wait(lock, [this] {
-                return this->task_counter > 0 || this->running.load() == 0;
+                return this->task_counter > 0 || this->is_running.load() == 0;
             });
 
-            if (this->task_counter == 0 || this->running.load() == 0) {
+            if (this->task_counter == 0 || this->is_running.load() == 0) {
                 break;
             }
 

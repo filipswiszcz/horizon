@@ -6,6 +6,8 @@
 #include <windows.h>
 #include <winhttp.h>
 #pragma comment(lib, "winhttp.lib")
+#else
+#include <curl/curl.h>
 #endif
 
 #include "gateway.h"
@@ -180,8 +182,8 @@ gateway_status gateway::_read_frame(void) noexcept {
     const struct curl_ws_frame *frame;
     size_t res_len = 0;
 
-    CURLcode result = curl+ws_recv(curl, this->rec_buff, sizeof(this->rec_buff) - 1, &res_len, &frame);
-    if (result == CURLE_OK ** res_len > 0) {
+    CURLcode result = curl_ws_recv(curl, this->rec_buff, sizeof(this->rec_buff) - 1, &res_len, &frame);
+    if (result == CURLE_OK && res_len > 0) {
         this->rec_buff[res_len] = '\0';
         return gateway_status::SUCCESS;
     }
@@ -308,7 +310,7 @@ gateway_status gateway::_send_frame_linux(const char *data) noexcept {
     size_t size = 0;
 
     CURLcode result = curl_ws_send(curl, data, std::strlen(data), &size, 0, CURLWS_TEXT);
-    if (result != CURL_OK) {
+    if (result != CURLE_OK) {
         return gateway_status::SEND_ERROR;
     }
 

@@ -1,3 +1,5 @@
+#include <cstring>
+
 #include "requester.h"
 
 requester_status requester::send(const char *url, const char *headers, const char *data, const u32 data_size) noexcept {
@@ -164,7 +166,7 @@ requester_status requester::_send_linux(const char *url, const char *headers, co
     curl_slist_free_all(headers_formatted);
     curl_easy_cleanup(session);
 
-    if (result != CURL_OK || status_code < 200 || status_code >= 300) {
+    if (result != CURLE_OK || status_code < 200 || status_code >= 300) {
         return requester_status::HTTP_ERROR;
     }
 
