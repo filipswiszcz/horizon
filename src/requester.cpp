@@ -111,7 +111,18 @@ requester_status requester::_send_linux(const char *url, const char *headers, co
         return requester_status::INIT_ERROR;
     }
 
-    curl_slist *headers_formatted = curl_slist_append(nullptr, headers);
+    char headers_copy[256];
+    std::strncpy(headers_copy, headers, sizeof(headers_copy) - 1);
+    headers_copy[sizeof(headers_copy) - 1] = '\0';
+
+    curl_slist *headers_formatted = nullptr;
+    char *header_token = std::strtok(headers_copy, "\r\n");
+
+    while (header_token != nullptr) {
+        headers_formatted = curl_slist_append(headers_formatted, header_token);
+        header_token = std::strtok(nullptr, "\r\n");
+    }
+
     if (headers_formatted == nullptr) {
         curl_easy_cleanup(session);
         return requester_status::INIT_ERROR;
