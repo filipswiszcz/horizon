@@ -17,11 +17,7 @@ enum class device_status : u8 {
 };
 
 // get map of channels
-// don't terminate the program, when messenger doesn't send msgs
-// keep the bot heartbeat alive
-// make device/messenger configurable
-// add linux send
-// swap includes with class forward declarations
+// make device/messenger configurable/restartable
 
 class device {
 public:

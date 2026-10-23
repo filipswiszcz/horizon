@@ -22,7 +22,13 @@ device_status device::initialize(void) noexcept {
     this->is_running = 1;
     this->is_gw_online = 0;
     this->is_mess_online = 0;
-    this->channels.counter = 0;
+
+    /* TEMP CHANGELOG CHANNEL */
+    std::strncpy(this->channels.names[0], "changelog", sizeof(this->channels.names[0]) - 1);
+    this->channels.names[0][sizeof(this->channels.names[0]) - 1] = '\0';
+    this->channels.ids[0] = 1556246990831095870ULL;
+    this->channels.counter = 1;
+    /* END OF TEMP CHANGELOG CHANNEL */
 
     dispatcher_status disp_init_status = this->dispatcher.initialize();
     if (disp_init_status != dispatcher_status::SUCCESS) {
@@ -33,6 +39,7 @@ device_status device::initialize(void) noexcept {
     gateway_status gate_init_status = this->gateway.initialize(token);
     if (gate_init_status == gateway_status::SUCCESS) {
         this->is_gw_online = 1;
+        std::cout << "HOR: Gateway online." << std::endl;
     } else {
         std::cout << "HOR_WARN: Gateway offline." << std::endl;
     }
@@ -40,6 +47,7 @@ device_status device::initialize(void) noexcept {
     messenger_status mess_init_status = this->messenger.initialize(&this->dispatcher, &this->requester, token);
     if (mess_init_status == messenger_status::SUCCESS) {
         this->is_mess_online = 1;
+        std::cout << "HOR: Messenger online." << std::endl;
     } else {
         std::cout << "HOR_WARN: Messenger offline." << std::endl;
     }
@@ -69,13 +77,12 @@ void device::tick(void) noexcept {
                 std::cout << "HOR_WARN: Gateway connection dropped." << std::endl;
                 this->is_gw_online = 0;
             }
-            // std::cout << "HOR: Gateway is up." << std::endl;
             this->last_gateway_check = clock_now;
         }
 
         auto p4_clock_elapsed = std::chrono::duration_cast<std::chrono::seconds>(clock_now - this->last_commits_check).count();
         if (p4_clock_elapsed >= 120) {
-            // this->_check_commits("//depot/...", "changelog");
+            this->_check_commits("//Horizon/...", "changelog");
             // messenger_status mess_send_status = messenger.send(1556246990831095870, "wake the fuck up samurai");
             this->last_commits_check = clock_now;
         }
