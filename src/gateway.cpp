@@ -30,6 +30,10 @@ gateway_status gateway::initialize(const char *token) noexcept {
 
 #ifdef _WIN32
     gateway_status gw_conn_status = this->_connect_win32();
+#else
+    gateway_status gw_conn_status = this->_connect_linux();
+#endif
+
     if (gw_conn_status != gateway_status::SUCCESS) {
         return gw_conn_status;
     }
@@ -57,9 +61,6 @@ gateway_status gateway::initialize(const char *token) noexcept {
     this->last_heartbeat = std::chrono::steady_clock::now();
     
     return gateway_status::SUCCESS;
-#else
-    return this->_connect_linux();
-#endif
 }
 
 gateway_status gateway::update(void) noexcept {
@@ -148,7 +149,7 @@ gateway_status gateway::_send_identify(void) noexcept {
 #ifdef _WIN32
     return this->_send_frame_win32(data);
 #else
-     return gateway_status::SUCCESS; // add linux and fix it
+    return this->_send_frame_linux(data);
 #endif
 }
 
@@ -157,7 +158,7 @@ gateway_status gateway::_send_heartbeat(void) noexcept {
 #ifdef _WIN32
     return this->_send_frame_win32(data);
 #else
-    return gateway_status::SUCCESS; // unix
+    return this->_send_frame_linux(data);
 #endif
 }
 

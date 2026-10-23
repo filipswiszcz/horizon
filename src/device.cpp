@@ -69,6 +69,7 @@ void device::tick(void) noexcept {
                 std::cout << "HOR_WARN: Gateway connection dropped." << std::endl;
                 this->is_gw_online = 0;
             }
+            // std::cout << "HOR: Gateway is up." << std::endl;
             this->last_gateway_check = clock_now;
         }
 
