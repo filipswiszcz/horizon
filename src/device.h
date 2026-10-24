@@ -18,6 +18,8 @@ enum class device_status : u8 {
 
 // get map of channels
 // make device/messenger configurable/restartable
+// p4 login inject
+// read depots and changelog channels from device.dat
 
 class device {
 public:

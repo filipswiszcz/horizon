@@ -69,7 +69,6 @@ gateway_status gateway::update(void) noexcept {
     }
 
     if (this->heartbeat > 0) {
-
         auto clock_now = std::chrono::steady_clock::now();
         auto clock_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(clock_now - this->last_heartbeat).count();
 
@@ -94,30 +93,6 @@ gateway_status gateway::update(void) noexcept {
     }
 
     return gateway_status::SUCCESS;
-
-//     HINTERNET websocket_handle = static_cast<HINTERNET>(this->websocket);
-//     WINHTTP_WEB_SOCKET_BUFFER_TYPE type;
-//     DWORD status, size = 0;
-//     status = WinHttpWebSocketReceive(websocket_handle, this->rec_buff, sizeof(this->rec_buff) - 1, &size, &type);
-//     if (status == ERROR_SUCCESS && size > 0) {
-//         this->rec_buff[size] = '\0';
-
-//         std::cout << "DISCORD GATEWAY: " << this->rec_buff << std::endl;
-
-//         if (std::strstr(this->rec_buff, "\"op\":10") != nullptr || std::strstr(this->rec_buff, "\"op\": 10") != nullptr) {
-//             std::cout << this->rec_buff << std::endl;
-//             const char *interval = std::strstr(this->rec_buff, "\"heartbeat_interval\":");
-//             if (interval != nullptr) {
-//                 std::sscanf(interval, "\"heartbeat_interval\":%u", &this->heartbeat);
-//                 std::cout << "HOR_GATEWAY: Hello received. Heartbeat interval: " << this->heartbeat << "ms." << std::endl;
-//                 this->_send_identify();
-//             } 
-//         }
-//     }
-// #else
-
-// #endif
-//     return gateway_status::SUCCESS;
 }
 
 void gateway::terminate(void) noexcept {

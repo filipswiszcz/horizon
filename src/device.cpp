@@ -66,18 +66,23 @@ device_status device::initialize(void) noexcept {
 
 void device::tick(void) noexcept {
     while (this->is_running) {
-        // this->gateway.update(); // i need to think it through
-
         auto clock_now = std::chrono::steady_clock::now();
 
         auto gw_clock_elapsed = std::chrono::duration_cast<std::chrono::seconds>(clock_now - this->last_gateway_check).count();
-        if (this->is_gw_online && gw_clock_elapsed >= 1) {
-            gateway_status gw_update_status = this->gateway.update();
-            if (gw_update_status != gateway_status::SUCCESS) {
-                std::cout << "HOR_WARN: Gateway connection dropped." << std::endl;
-                this->is_gw_online = 0;
+        if (this->is_gw_online) {
+            if (gw_clock_elapsed >= 1) {
+                gateway_status gw_update_status = this->gateway.update();
+                if (gw_update_status != gateway_status::SUCCESS) {
+                    std::cout << "HOR_WARN: Gateway connection dropped." << std::endl;
+                    this->is_gw_online = 0;
+                }
+                this->last_gateway_check = clock_now;
             }
-            this->last_gateway_check = clock_now;
+        } else {
+            if (gw_clock_elapsed >= 10) {
+                this->_restore_gateway_conn();
+                this->last_gateway_check = clock_now;
+            }
         }
 
         auto p4_clock_elapsed = std::chrono::duration_cast<std::chrono::seconds>(clock_now - this->last_commits_check).count();
@@ -87,12 +92,9 @@ void device::tick(void) noexcept {
             this->last_commits_check = clock_now;
         }
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
-
-        // const requester_status req_send_status = requester.send(this->url, this->msg, std::strlen(this->msg));
-        // std::cout << static_cast<u32>(req_send_status) << std::endl;
-
         // handle responses from the server (eg /status)
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
     }
 }
 
@@ -139,6 +141,21 @@ device_status device::_save_state(void) noexcept {
         return device_status::WRITE_ERROR;
     }
     (void) std::fclose(file);
+    return device_status::SUCCESS;
+}
+
+device_status device::_restore_gateway_conn(void) noexcept {
+    this->gateway.terminate();
+
+    gateway_status gate_init_status = this->gateway.initialize(this->token);
+    if (gate_init_status != gateway_status::SUCCESS) {
+        std::cout << "HOR_WARN: Gateway offline." << std::endl;
+        return device_status::NETWORK_ERROR;
+    }
+
+    this->is_gw_online = 1;
+    std::cout << "HOR: Gateway online." << std::endl;
+
     return device_status::SUCCESS;
 }
 
