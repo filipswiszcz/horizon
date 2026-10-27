@@ -44,6 +44,8 @@ device_status device::initialize(void) noexcept {
         std::cout << "HOR_WARN: Gateway offline." << std::endl;
     }
 
+    this->last_gateway_check = std::chrono::steady_clock::now(); 
+
     messenger_status mess_init_status = this->messenger.initialize(&this->dispatcher, &this->requester, token);
     if (mess_init_status == messenger_status::SUCCESS) {
         this->is_mess_online = 1;
@@ -54,12 +56,17 @@ device_status device::initialize(void) noexcept {
 
     device_status dev_load_status = this->_load_state();
     if (dev_load_status != device_status::SUCCESS) {
-        this->last_commit_id = 0;
+        this->last_p4_commit_id = 0;
         std::cout << "HOR_WARN: Could not access or create state file. Defaulting commit ID to 0." << std::endl;
     }
 
-    this->last_commits_check = std::chrono::steady_clock::now();
-    this->last_gateway_check = std::chrono::steady_clock::now();
+    device_status dev_p4_login = this->_create_p4_ticket();
+    if (dev_p4_login != device_status::SUCCESS) {
+        std::cout << "HOT_WARN: P4 auth failed." << std::endl;
+    }
+
+    this->last_p4_login = std::chrono::steady_clock::now();
+    this->last_p4_commits_check = std::chrono::steady_clock::now();
 
     return device_status::SUCCESS;
 }
@@ -68,28 +75,37 @@ void device::tick(void) noexcept {
     while (this->is_running) {
         auto clock_now = std::chrono::steady_clock::now();
 
-        auto gw_clock_elapsed = std::chrono::duration_cast<std::chrono::seconds>(clock_now - this->last_gateway_check).count();
+        auto gw_update_elapsed = std::chrono::duration_cast<std::chrono::seconds>(clock_now - this->last_gateway_check).count();
         if (this->is_gw_online) {
-            if (gw_clock_elapsed >= 1) {
+            if (gw_update_elapsed >= 1) {
                 gateway_status gw_update_status = this->gateway.update();
                 if (gw_update_status != gateway_status::SUCCESS) {
-                    std::cout << "HOR_WARN: Gateway connection dropped." << std::endl;
                     this->is_gw_online = 0;
+                    std::cout << "HOR_WARN: Gateway connection dropped." << std::endl;
                 }
                 this->last_gateway_check = clock_now;
             }
         } else {
-            if (gw_clock_elapsed >= 10) {
+            if (gw_update_elapsed >= 10) {
                 this->_restore_gateway_conn();
                 this->last_gateway_check = clock_now;
             }
         }
 
-        auto p4_clock_elapsed = std::chrono::duration_cast<std::chrono::seconds>(clock_now - this->last_commits_check).count();
-        if (p4_clock_elapsed >= 120) {
-            this->_check_commits("//Horizon/...", "changelog");
+        auto p4_login_elapsed = std::chrono::duration_cast<std::chrono::hours>(clock_now - this->last_p4_login).count();
+        if (p4_login_elapsed >= 11) {
+            device_status dev_p4_login = this->_create_p4_ticket();
+            if (dev_p4_login != device_status::SUCCESS) {
+                std::cout << "HOR_WARN: P4 auth failed." << std::endl;
+            }
+            this->last_p4_login = clock_now;
+        }
+
+        auto p4_commit_check_elapsed = std::chrono::duration_cast<std::chrono::seconds>(clock_now - this->last_p4_commits_check).count();
+        if (p4_commit_check_elapsed >= 120) {
+            this->_check_p4_commits("//Horizon/...", "changelog");
             // messenger_status mess_send_status = messenger.send(1556246990831095870, "wake the fuck up samurai");
-            this->last_commits_check = clock_now;
+            this->last_p4_commits_check = clock_now;
         }
 
         // handle responses from the server (eg /status)
@@ -122,11 +138,11 @@ device_status device::_load_state(void) noexcept {
         if (errno != ENOENT) {
             return device_status::READ_ERROR;
         }
-        this->last_commit_id = 0;
+        this->last_p4_commit_id = 0;
         return this->_save_state();
     }
-    if (std::fscanf(file, "last_commit_id=%d", &this->last_commit_id) != 1) {
-        this->last_commit_id = 0;
+    if (std::fscanf(file, "last_p4_commit_id=%d", &this->last_p4_commit_id) != 1) {
+        this->last_p4_commit_id = 0;
     }
     (void) std::fclose(file);
     return device_status::SUCCESS;
@@ -137,7 +153,7 @@ device_status device::_save_state(void) noexcept {
     if (file == nullptr) {
         return device_status::WRITE_ERROR;
     }
-    if (std::fprintf(file, "last_commit_id=%d", this->last_commit_id) == 0) {
+    if (std::fprintf(file, "last_p4_commit_id=%d", this->last_p4_commit_id) == 0) {
         return device_status::WRITE_ERROR;
     }
     (void) std::fclose(file);
@@ -159,7 +175,40 @@ device_status device::_restore_gateway_conn(void) noexcept {
     return device_status::SUCCESS;
 }
 
-device_status device::_check_commits(const char *depot_name, const char *channel_name) noexcept {
+device_status device::_restart_messenger(void) noexcept {
+    return device_status::SUCCESS;
+}
+
+device_status device::_create_p4_ticket(void) noexcept {
+    const char *pass = std::getenv("PASS");
+    if (pass == nullptr || std::strlen(pass) == 0) {
+        std::cout << "HOR_ERR: Missing P4 password." << std::endl;
+        return device_status::MISSING_PASS;
+    }
+
+    FILE *pipe;
+#ifdef _WIN32
+    pipe = _popen("p4 login", "w");
+#else
+    pipe = popen("p4 login", "w");
+#endif
+
+    if (pipe == nullptr) {
+        return device_status::READ_ERROR;
+    }
+
+    std::fprintf(pipe, "%s\\n", pass);
+
+#ifdef _WIN32
+    _pclose(pipe);
+#else
+    pclose(pipe);
+#endif
+
+    return device_status::SUCCESS;
+}
+
+device_status device::_check_p4_commits(const char *depot_name, const char *channel_name) noexcept {
     if (depot_name == nullptr || channel_name == nullptr) {
         return device_status::READ_ERROR;
     }
@@ -197,7 +246,7 @@ device_status device::_check_commits(const char *depot_name, const char *channel
         return device_status::READ_ERROR;
     }
 
-    if (curr_commit_id <= this->last_commit_id) {
+    if (curr_commit_id <= this->last_p4_commit_id) {
 #ifdef _WIN32
         _pclose(cmd_p4_changes_pipe);
 #else
@@ -259,14 +308,14 @@ device_status device::_check_commits(const char *depot_name, const char *channel
     char message[1536];
     std::snprintf(message, sizeof(message), "CHANGELOG #%d\\n%s", curr_commit_id, content);
 
-    if (this->last_commit_id != 0) {
+    if (this->last_p4_commit_id != 0) {
         u64 channel_id = this->_get_channel_id(channel_name);
         if (channel_id != 0) {
             this->messenger.send(channel_id, message);
         }
     }
 
-    this->last_commit_id = curr_commit_id;
+    this->last_p4_commit_id = curr_commit_id;
     this->_save_state();
 
     return device_status::SUCCESS;
