@@ -49,5 +49,5 @@ messenger_status messenger::send(const u64 channel_id, const char *content) noex
 void messenger::_worker_execute_send(const u8 *data, void *context) noexcept {
     const message *message = reinterpret_cast<const struct message*>(data);
     auto *instance = static_cast<class messenger*>(context);
-    instance->requester->send(message->url, message->headers, message->data, message->data_size);
+    instance->requester->post(message->url, message->headers, message->data, message->data_size);
 }

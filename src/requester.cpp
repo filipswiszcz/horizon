@@ -2,15 +2,29 @@
 
 #include "requester.h"
 
-requester_status requester::send(const char *url, const char *headers, const char *data, const u32 data_size) noexcept {
+requester_status requester::post(const char *url, const char *headers, const char *data, const u32 data_size) noexcept {
     if (url == nullptr || headers == nullptr || data == nullptr || data_size == 0) {
         return requester_status::INVALID_ARG;
     }
 
 #ifdef _WIN32
-    return _send_win32(url, headers, data, data_size);
+    return _post_win32(url, headers, data, data_size);
 #else
-    return _send_linux(url, headers, data, data_size);
+    return _post_linux(url, headers, data, data_size);
+#endif
+}
+
+requester_status requester::get(const char *url, const char *headers, char *response, u32 response_size) noexcept {
+    if (url == nullptr || headers == nullptr || response == nullptr || response_size == 0) {
+        return requester_status::INVALID_ARG;
+    }
+
+    response[0] = '\0';
+
+#ifdef _WIN32
+    return _get_win32(url, headers, response, response_size);
+#else
+    return _get_linux(url, headers, response, response_size);
 #endif
 }
 
@@ -21,7 +35,7 @@ requester_status requester::send(const char *url, const char *headers, const cha
 
 #pragma comment(lib, "winhttp.lib")
 
-requester_status requester::_send_win32(const char *url, const char *headers, const char *data, const u32 data_size) noexcept {
+requester_status requester::_post_win32(const char *url, const char *headers, const char *data, const u32 data_size) noexcept {
     if (url == nullptr || headers == nullptr || data == nullptr || data_size == 0) {
         return requester_status::INVALID_ARG;
     }
@@ -93,11 +107,15 @@ requester_status requester::_send_win32(const char *url, const char *headers, co
     return requester_status::SUCCESS;
 }
 
+requester_status requester::_get_win32(const char *url, const char *headers, char *response, u32 response_size) noexcept {
+    return requester_status::SUCCESS;
+}
+
 #else
 
 #include <curl/curl.h>
 
-requester_status requester::_send_linux(const char *url, const char *headers, const char *data, const u32 data_size) noexcept {
+requester_status requester::_post_linux(const char *url, const char *headers, const char *data, const u32 data_size) noexcept {
     if (url == nullptr || headers == nullptr || data == nullptr || data_size == 0) {
         return requester_status::INVALID_ARG;
     }
@@ -117,7 +135,6 @@ requester_status requester::_send_linux(const char *url, const char *headers, co
 
     curl_slist *headers_formatted = nullptr;
     char *header_token = std::strtok(headers_copy, "\r\n");
-
     while (header_token != nullptr) {
         headers_formatted = curl_slist_append(headers_formatted, header_token);
         header_token = std::strtok(nullptr, "\r\n");
@@ -178,6 +195,100 @@ requester_status requester::_send_linux(const char *url, const char *headers, co
     curl_easy_cleanup(session);
 
     if (result != CURLE_OK || status_code < 200 || status_code >= 300) {
+        return requester_status::HTTP_ERROR;
+    }
+
+    return requester_status::SUCCESS;
+}
+
+requester_status requester::_get_linux(const char *url, const char *headers, char *response, u32 response_size) noexcept {
+    CURL *curl = curl_easy_init();
+    if (curl == nullptr) {
+        return requester_status::INIT_ERROR;
+    }
+
+    char headers_copy[256];
+    std::strncpy(headers_copy, headers, sizeof(headers_copy) - 1);
+    headers_copy[sizeof(headers_copy) - 1] = '\0';
+
+    curl_slist *headers_formatted = nullptr;
+    char *header_token = std::strtok(headers_copy, "\r\n");
+    while (header_token != nullptr) {
+        headers_formatted = curl_slist_append(headers_formatted, header_token);
+        header_token = std::strtok(nullptr, "\r\n");
+    }
+
+    if (headers_formatted == nullptr) {
+        curl_easy_cleanup(curl);
+        return requester_status::INIT_ERROR;
+    }
+
+    struct curl_write_context {
+        char *data;
+        u32 size;
+        u32 offset;
+    };
+
+    using write_fn_t = size_t(*) (char*, size_t, size_t, void*);
+    const write_fn_t write_fn = +[](char* ptr, size_t elem_size, size_t elem_count, void *data) noexcept -> size_t {
+        curl_write_context *context = static_cast<curl_write_context*>(data);
+        
+        size_t size = elem_size * elem_count;
+        if (context->offset + size < context->size) {
+            std::memcpy(context->data + context->offset, ptr, size);
+            context->offset += size;
+            context->data[context->offset] = '\0';
+            return size;
+        }
+
+        return 0;
+    };
+
+    curl_write_context context = {
+        response,
+        response_size,
+        0
+    };
+
+    CURLcode code = curl_easy_setopt(curl, CURLOPT_URL, url);
+    if (code == CURLE_OK) {
+        code = curl_easy_setopt(curl, CURLOPT_USERAGENT, "HOR/1.0");
+    }
+    if (code == CURLE_OK) {
+        code = curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers_formatted);
+    }
+    if (code == CURLE_OK) {
+        code = curl_easy_setopt(curl, CURLOPT_HTTPGET, 1);
+    }
+    if (code == CURLE_OK) {
+        code = curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_fn);
+    }
+    if (code == CURLE_OK) {
+        code = curl_easy_setopt(curl, CURLOPT_WRITEDATA, &context);
+    }
+    if (code == CURLE_OK) {
+        code = curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
+    }
+    if (code == CURLE_OK) {
+        code = curl_easy_setopt(curl, CURLOPT_TIMEOUT, 30);
+    }
+
+    if (code != CURLE_OK) {
+        curl_slist_free_all(headers_formatted);
+        curl_easy_cleanup(curl);
+        return requester_status::HTTP_ERROR; // need other error here
+    }
+
+    long status_code = 0;
+    code = curl_easy_perform(curl);
+    if (code == CURLE_OK) {
+        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status_code);
+    }
+
+    curl_slist_free_all(headers_formatted);
+    curl_easy_cleanup(curl);
+
+    if (code != CURLE_OK || status_code < 200 || status_code >= 300) {
         return requester_status::HTTP_ERROR;
     }
 
