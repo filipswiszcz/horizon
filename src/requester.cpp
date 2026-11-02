@@ -108,6 +108,110 @@ requester_status requester::_post_win32(const char *url, const char *headers, co
 }
 
 requester_status requester::_get_win32(const char *url, const char *headers, char *response, u32 response_size) noexcept {
+    if (url == nullptr || headers == nullptr || response == nullptr || response_size == 0) {
+        return requester_status::INVALID_ARG;
+    }
+
+    wchar_t url_wide[2048]{}, headers_wide[256]{};
+    const i32 url_len = MultiByteToWideChar(CP_UTF8, 0, url, -1, url_wide, static_cast<i32>(sizeof(url_wide) / sizeof(url_wide[0])));
+    if (url_len == 0) {
+        return requester_status::INVALID_ARG;
+    }
+
+    const i32 headers_len = MultiByteToWideChar(CP_UTF8, 0, headers, -1, headers_wide, static_cast<i32>(sizeof(headers_wide) / sizeof(headers_wide[0])));
+    if (headers_len == 0) {
+        return requester_status::INVALID_ARG;
+    }
+
+    wchar_t host[512]{}, url_path[2048]{};
+    URL_COMPONENTS url_parts{};
+    url_parts.dwStructSize = sizeof(url_parts);
+    url_parts.lpszHostName = host;
+    url_parts.dwHostNameLength = static_cast<DWORD>(sizeof(host) / sizeof(host[0]));
+    url_parts.lpszUrlPath = url_path;
+    url_parts.dwUrlPathLength = static_cast<DWORD>(sizeof(url_path) / sizeof(url_path[0]));
+
+    if (!WinHttpCrackUrl(url_wide, 0, 0, &url_parts)) {
+        return requester_status::INVALID_ARG;
+    }
+
+    if (url_parts.nScheme != INTERNET_SCHEME_HTTPS) {
+        return requester_status::INVALID_ARG;
+    }
+
+    HINTERNET session = WinHttpOpen(L"HOR/1.0", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
+    if (session == nullptr) {
+        return requester_status::INIT_ERROR;
+    }
+
+    HINTERNET connection = WinHttpConnect(session, host, url_parts.nPort, 0);
+    if (connection == nullptr) {
+        (void) WinHttpCloseHandle(session);
+        return requester_status::INIT_ERROR;
+    }
+
+    HINTERNET request = WinHttpOpenRequest(connection, L"GET", url_path, nullptr, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, WINHTTP_FLAG_SECURE);
+    if (request == nullptr) {
+        (void) WinHttpCloseHandle(connection);
+        (void) WinHttpCloseHandle(session);
+        return requester_status::INIT_ERROR;
+    }
+
+    const BOOL is_sent = WinHttpSendRequest(request, headers_wide, static_cast<DWORD>(-1L), WINHTTP_NO_REQUEST_DATA, 0, 0, 0);
+    if (!is_sent || !WinHttpReceiveResponse(request, nullptr)) {
+        (void) WinHttpCloseHandle(request);
+        (void) WinHttpCloseHandle(connection);
+        (void) WinHttpCloseHandle(session);
+        return requester_status::HTTP_ERROR;
+    }
+
+    DWORD status_code = 0, status_size = sizeof(status_code);
+    const BOOL has_status = WinHttpQueryHeaders(request, WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER, WINHTTP_HEADER_NAME_BY_INDEX, &status_code, &status_size, WINHTTP_NO_HEADER_INDEX);
+    if (!has_status || status_code < 200 || status_code >= 300) {
+        (void) WinHttpCloseHandle(request);
+        (void) WinHttpCloseHandle(connection);
+        (void) WinHttpCloseHandle(session);
+        return requester_status::HTTP_ERROR;
+    }
+
+    u32 offset = 0;
+    DWORD size = 0;
+    do {
+        size = 0;
+        if (!WinHttpQueryDataAvailable(request, &size)) {
+            (void) WinHttpCloseHandle(request);
+            (void) WinHttpCloseHandle(connection);
+            (void) WinHttpCloseHandle(session);
+            return requester_status::HTTP_ERROR;
+        }
+
+        if (size == 0) {
+            break;
+        }
+
+        if (offset + size >= response_size) {
+            (void) WinHttpCloseHandle(request);
+            (void) WinHttpCloseHandle(connection);
+            (void) WinHttpCloseHandle(session);
+            return requester_status::HTTP_ERROR;
+        }
+
+        DWORD data = 0;
+        if (!WinHttpReadData(request, response + offset, size, &data)) {
+            (void) WinHttpCloseHandle(request);
+            (void) WinHttpCloseHandle(connection);
+            (void) WinHttpCloseHandle(session);
+            return requester_status::HTTP_ERROR;
+        }
+
+        offset += static_cast<u32>(data);
+        response[offset] = '\0';
+    } while (size > 0);
+
+    (void) WinHttpCloseHandle(request);
+    (void) WinHttpCloseHandle(connection);
+    (void) WinHttpCloseHandle(session);
+        
     return requester_status::SUCCESS;
 }
 
