@@ -13,15 +13,15 @@ enum class device_status : u8 {
     INIT_ERROR,
     READ_ERROR,
     WRITE_ERROR,
-    NETWORK_ERROR
+    NETWORK_ERROR,
+    MISSING_TOKEN,
+    MISSING_PASS
 };
 
 // get map of channels
-// don't terminate the program, when messenger doesn't send msgs
-// keep the bot heartbeat alive
-// make device/messenger configurable
-// add linux send
-// swap includes with class forward declarations
+// make device/messenger configurable/restartable
+// p4 login inject
+// read depots and changelog channels from device.dat
 
 class device {
 public:
@@ -47,9 +47,11 @@ private:
     u8 is_gw_online;
     u8 is_mess_online;
 
-    i32 last_commit_id;
-    std::chrono::steady_clock::time_point last_commits_check;
     std::chrono::steady_clock::time_point last_gateway_check;
+
+    std::chrono::steady_clock::time_point last_p4_login;
+    std::chrono::steady_clock::time_point last_p4_commits_check;
+    i32 last_p4_commit_id;
 
     [[nodiscard]] u64 _get_channel_id(const char *name) noexcept;
 
@@ -58,8 +60,9 @@ private:
 
     [[nodiscard]] device_status _restore_gateway_conn(void) noexcept;
     [[nodiscard]] device_status _restart_messenger(void) noexcept;
-
-    [[nodiscard]] device_status _check_commits(const char *depot_name, const char *channel_name) noexcept;
+    
+    [[nodiscard]] device_status _create_p4_ticket(void) noexcept;
+    [[nodiscard]] device_status _check_p4_commits(const char *depot_name, const char *channel_name) noexcept;
 };
 
 #endif // !HOR_DEVICE_H

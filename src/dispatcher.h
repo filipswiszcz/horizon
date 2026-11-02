@@ -1,6 +1,7 @@
 #ifndef HOR_DISPATCHER_H
 #define HOR_DISPATCHER_H
 
+#include <atomic>
 #include <mutex>
 #include <condition_variable>
 #include <thread>
@@ -55,7 +56,7 @@ private:
     task tasks[MAX_QUEUE_TASKS];
     u32 task_counter, tasks_head, tasks_tail;
 
-    std::atomic<u8> running;
+    std::atomic<u8> is_running;
 
     void _worker_update(void) noexcept;
 };

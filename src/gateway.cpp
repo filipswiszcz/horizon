@@ -6,6 +6,8 @@
 #include <windows.h>
 #include <winhttp.h>
 #pragma comment(lib, "winhttp.lib")
+#else
+#include <curl/curl.h>
 #endif
 
 #include "gateway.h"
@@ -28,6 +30,10 @@ gateway_status gateway::initialize(const char *token) noexcept {
 
 #ifdef _WIN32
     gateway_status gw_conn_status = this->_connect_win32();
+#else
+    gateway_status gw_conn_status = this->_connect_linux();
+#endif
+
     if (gw_conn_status != gateway_status::SUCCESS) {
         return gw_conn_status;
     }
@@ -55,9 +61,6 @@ gateway_status gateway::initialize(const char *token) noexcept {
     this->last_heartbeat = std::chrono::steady_clock::now();
     
     return gateway_status::SUCCESS;
-#else
-    return this->_connect_linux();
-#endif
 }
 
 gateway_status gateway::update(void) noexcept {
@@ -66,7 +69,6 @@ gateway_status gateway::update(void) noexcept {
     }
 
     if (this->heartbeat > 0) {
-
         auto clock_now = std::chrono::steady_clock::now();
         auto clock_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(clock_now - this->last_heartbeat).count();
 
@@ -91,30 +93,6 @@ gateway_status gateway::update(void) noexcept {
     }
 
     return gateway_status::SUCCESS;
-
-//     HINTERNET websocket_handle = static_cast<HINTERNET>(this->websocket);
-//     WINHTTP_WEB_SOCKET_BUFFER_TYPE type;
-//     DWORD status, size = 0;
-//     status = WinHttpWebSocketReceive(websocket_handle, this->rec_buff, sizeof(this->rec_buff) - 1, &size, &type);
-//     if (status == ERROR_SUCCESS && size > 0) {
-//         this->rec_buff[size] = '\0';
-
-//         std::cout << "DISCORD GATEWAY: " << this->rec_buff << std::endl;
-
-//         if (std::strstr(this->rec_buff, "\"op\":10") != nullptr || std::strstr(this->rec_buff, "\"op\": 10") != nullptr) {
-//             std::cout << this->rec_buff << std::endl;
-//             const char *interval = std::strstr(this->rec_buff, "\"heartbeat_interval\":");
-//             if (interval != nullptr) {
-//                 std::sscanf(interval, "\"heartbeat_interval\":%u", &this->heartbeat);
-//                 std::cout << "HOR_GATEWAY: Hello received. Heartbeat interval: " << this->heartbeat << "ms." << std::endl;
-//                 this->_send_identify();
-//             } 
-//         }
-//     }
-// #else
-
-// #endif
-//     return gateway_status::SUCCESS;
 }
 
 void gateway::terminate(void) noexcept {
@@ -146,7 +124,7 @@ gateway_status gateway::_send_identify(void) noexcept {
 #ifdef _WIN32
     return this->_send_frame_win32(data);
 #else
-     return gateway_status::SUCCESS; // add linux and fix it
+    return this->_send_frame_linux(data);
 #endif
 }
 
@@ -155,7 +133,7 @@ gateway_status gateway::_send_heartbeat(void) noexcept {
 #ifdef _WIN32
     return this->_send_frame_win32(data);
 #else
-    return gateway_status::SUCCESS; // unix
+    return this->_send_frame_linux(data);
 #endif
 }
 
@@ -180,8 +158,8 @@ gateway_status gateway::_read_frame(void) noexcept {
     const struct curl_ws_frame *frame;
     size_t res_len = 0;
 
-    CURLcode result = curl+ws_recv(curl, this->rec_buff, sizeof(this->rec_buff) - 1, &res_len, &frame);
-    if (result == CURLE_OK ** res_len > 0) {
+    CURLcode result = curl_ws_recv(curl, this->rec_buff, sizeof(this->rec_buff) - 1, &res_len, &frame);
+    if (result == CURLE_OK && res_len > 0) {
         this->rec_buff[res_len] = '\0';
         return gateway_status::SUCCESS;
     }
@@ -308,7 +286,7 @@ gateway_status gateway::_send_frame_linux(const char *data) noexcept {
     size_t size = 0;
 
     CURLcode result = curl_ws_send(curl, data, std::strlen(data), &size, 0, CURLWS_TEXT);
-    if (result != CURL_OK) {
+    if (result != CURLE_OK) {
         return gateway_status::SEND_ERROR;
     }
 

@@ -29,7 +29,7 @@ messenger_status messenger::initialize(class dispatcher *dispatcher, class reque
 
 messenger_status messenger::send(const u64 channel_id, const char *content) noexcept {
     struct message message;
-    std::snprintf(message.url, sizeof(message.url), "%s/channels/%llu/messages", DISCORD_API_URL, channel_id);
+    std::snprintf(message.url, sizeof(message.url), "%s/channels/%lu/messages", DISCORD_API_URL, channel_id);
     std::snprintf(message.headers, sizeof(message.headers), "Content-Type: application/json\r\n%s", this->auth_header);
     std::snprintf(message.data, sizeof(message.data), "{\"content\": \"%s\"}", content);
     message.data_size = static_cast<u32>(std::strlen(message.data));
@@ -49,5 +49,5 @@ messenger_status messenger::send(const u64 channel_id, const char *content) noex
 void messenger::_worker_execute_send(const u8 *data, void *context) noexcept {
     const message *message = reinterpret_cast<const struct message*>(data);
     auto *instance = static_cast<class messenger*>(context);
-    instance->requester->send(message->url, message->headers, message->data, message->data_size);
+    instance->requester->post(message->url, message->headers, message->data, message->data_size);
 }
