@@ -329,13 +329,21 @@ device_status device::_create_p4_ticket(void) noexcept {
         return device_status::READ_ERROR;
     }
 
-    std::fprintf(pipe, "%s\\n", pass);
+    std::fprintf(pipe, "%s\n", pass);
 
+    i32 exit_code = 0;
 #ifdef _WIN32
-    _pclose(pipe);
+    exit_code = _pclose(pipe);
 #else
-    pclose(pipe);
+    exit_code = pclose(pipe);
 #endif
+
+    if (exit_code != 0) {
+        std::cout << "HOR_WARN: P4 login failed." << std::endl;
+        return device_status::READ_ERROR;
+    }
+
+    std::cout << "HOR: P4 authorized." << std::endl;
 
     return device_status::SUCCESS;
 }
