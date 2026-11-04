@@ -159,7 +159,7 @@ device_status device::_load_channels(void) noexcept {
     channels_copy.counter = 0;
 
     const char *response_pos = response;
-    while ((response_pos = std::strstr(response_pos, "\"id\": \"")) != nullptr) {
+    while ((response_pos = std::strstr(response_pos, "\"id\":\"")) != nullptr) {
         if (channels_copy.counter >= DISCORD_MAX_CHANNELS) {
             break;
         }
@@ -168,15 +168,15 @@ device_status device::_load_channels(void) noexcept {
         i32 type = -1;
         char name[101];
 
-        if (std::sscanf(response_pos, "\"id\": \"%llu\"", &id) != 1) {
+        if (std::sscanf(response_pos, "\"id\":\"%llu\"", &id) != 1) {
             response_pos++;
             break;
         }
 
-        const char *object = std::strstr(response_pos + 1, "\"id\": \"");
-        const char *type_pos = std::strstr(response_pos, "\"type\": ");
+        const char *object = std::strstr(response_pos + 1, "\"id\":\"");
+        const char *type_pos = std::strstr(response_pos, "\"type\":");
         if (type_pos != nullptr && (object == nullptr || type_pos < object)) {
-            std::sscanf(type_pos, "\"type\": %d", &type);
+            std::sscanf(type_pos, "\"type\":%d", &type);
         }
 
         if (type != 0 && type != 4) {
@@ -184,9 +184,9 @@ device_status device::_load_channels(void) noexcept {
             continue;
         }
 
-        const char *name_pos = std::strstr(response_pos, "\"name\": \"");
+        const char *name_pos = std::strstr(response_pos, "\"name\":\"");
         if (name_pos != nullptr && (object == nullptr || name_pos < object)) {
-            name_pos += 9;
+            name_pos += 8;
             const char *name_end = std::strchr(name_pos, '"');
             if (name_end != nullptr) {
                 size_t name_len = (name_end - name_pos);
@@ -198,9 +198,9 @@ device_status device::_load_channels(void) noexcept {
             }
         }
 
-        const char *parent_pos = std::strstr(response_pos, "\"parent_id\": \"");
+        const char *parent_pos = std::strstr(response_pos, "\"parent_id\":\"");
         if (parent_pos != nullptr && (object == nullptr || parent_pos < object)) {
-            std::sscanf(parent_pos, "\"parent_id\": \"%llu\"", &parent_id);
+            std::sscanf(parent_pos, "\"parent_id\":\"%llu\"", &parent_id);
         }
 
         channels_copy.ids[channels_copy.counter] = id;
@@ -213,7 +213,7 @@ device_status device::_load_channels(void) noexcept {
     }
     
     std::memcpy(&this->channels, &channels_copy, sizeof(this->channels));
-    std::cout << "HOR: Synced " << this->channels.counter << " channels." << std::endl;
+    std::cout << "HOR: " << this->channels.counter << " channels found." << std::endl;
 
     return device_status::SUCCESS;
 }
