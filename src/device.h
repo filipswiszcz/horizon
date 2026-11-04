@@ -15,12 +15,12 @@ enum class device_status : u8 {
     WRITE_ERROR,
     NETWORK_ERROR,
     MISSING_TOKEN,
-    MISSING_PASS
+    MISSING_PASS,
+    MISSING_GUILD
 };
 
 // get map of channels
 // make device/messenger configurable/restartable
-// p4 login inject
 // read depots and changelog channels from device.dat
 
 class device {
@@ -37,6 +37,7 @@ private:
     struct {
         char names[DISCORD_MAX_CHANNELS][101];
         u64 ids[DISCORD_MAX_CHANNELS];
+        u64 parent_ids[DISCORD_MAX_CHANNELS];
         u32 counter;
     } channels;
 
@@ -47,12 +48,14 @@ private:
     u8 is_gw_online;
     u8 is_mess_online;
 
-    std::chrono::steady_clock::time_point last_gateway_check;
+    std::chrono::steady_clock::time_point last_gateway_ping;
+    std::chrono::steady_clock::time_point last_channels_sync;
 
     std::chrono::steady_clock::time_point last_p4_login;
     std::chrono::steady_clock::time_point last_p4_commits_check;
     i32 last_p4_commit_id;
 
+    [[nodiscard]] device_status _load_channels(void) noexcept;
     [[nodiscard]] u64 _get_channel_id(const char *name) noexcept;
 
     [[nodiscard]] device_status _load_state(void) noexcept;

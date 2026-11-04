@@ -63,7 +63,7 @@ gateway_status gateway::initialize(const char *token) noexcept {
     return gateway_status::SUCCESS;
 }
 
-gateway_status gateway::update(void) noexcept {
+gateway_status gateway::ping(void) noexcept {
     if (this->websocket == nullptr) {
         return gateway_status::DISCONNECTED;
     }

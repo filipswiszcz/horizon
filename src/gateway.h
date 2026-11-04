@@ -17,7 +17,7 @@ enum class gateway_status : u8 {
 class gateway {
 public:
     [[nodiscard]] gateway_status initialize(const char *token) noexcept;
-    [[nodiscard]] gateway_status update(void) noexcept;
+    [[nodiscard]] gateway_status ping(void) noexcept;
     void terminate(void) noexcept;
 private:
     char token[128];
