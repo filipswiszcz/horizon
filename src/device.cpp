@@ -164,9 +164,15 @@ device_status device::_load_channels(void) noexcept {
             break;
         }
 
+        const char *object_end = find_json_object_end(response_pos);
+        if (object_end == nullptr) {
+            response_pos++;
+            continue;
+        }
+
         u64 id = 0, parent_id = 0;
         i32 type = -1;
-        char name[101];
+        char name[101] = {0};
 
         if (std::sscanf(response_pos, "\"id\":\"%llu\"", &id) != 1) {
             response_pos++;
@@ -180,12 +186,12 @@ device_status device::_load_channels(void) noexcept {
         }
 
         if (type != 0 && type != 4) {
-            response_pos++;
+            response_pos = object_end;
             continue;
         }
 
         const char *name_pos = std::strstr(response_pos, "\"name\":\"");
-        if (name_pos != nullptr && (object == nullptr || name_pos < object)) {
+        if (name_pos != nullptr && name_pos < object_end) {
             name_pos += 8;
             const char *name_end = std::strchr(name_pos, '"');
             if (name_end != nullptr) {
@@ -196,6 +202,11 @@ device_status device::_load_channels(void) noexcept {
                 std::strncpy(name, name_pos, name_len);
                 name[name_len] = '\0';
             }
+        }
+
+        if (name[0] == '\0') {
+            response_pos = object_end;
+            continue;
         }
 
         const char *parent_pos = std::strstr(response_pos, "\"parent_id\":\"");
@@ -209,7 +220,7 @@ device_status device::_load_channels(void) noexcept {
         channels_copy.parent_ids[channels_copy.counter] = parent_id;
         channels_copy.counter++;
 
-        response_pos++;
+        response_pos = object_end;
     }
     
     std::memcpy(&this->channels, &channels_copy, sizeof(this->channels));

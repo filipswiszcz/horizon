@@ -19,9 +19,10 @@ enum class device_status : u8 {
     MISSING_GUILD
 };
 
-// get map of channels
-// make device/messenger configurable/restartable
+// use allocator for all allocations (poetic)
+// make device/messenger configurable/restartable (+console)
 // read depots and changelog channels from device.dat
+// change sizes of eg token[128], channel_name[101]
 
 class device {
 public:
